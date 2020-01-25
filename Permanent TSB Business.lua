@@ -1,6 +1,6 @@
 local BANK_CODE = "Permanent TSB Business"
 
-WebBanking{version     = 1.00,
+WebBanking{version     = 1.01,
            url         = "https://www.business24.ie/online/",
            services    = {BANK_CODE},
            description = string.format(MM.localizeText("Get balance and transactions for %s"), BANK_CODE)}
