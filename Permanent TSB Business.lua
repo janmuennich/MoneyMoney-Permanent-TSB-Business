@@ -87,6 +87,7 @@ end
 function RefreshAccount(account, since)
     local statementPage = nil
     local balance = nil
+    local months = 1
 
     -- query balance & get statement url
     startPage:xpath("//div[contains(@class, 'module-account')]"):each(
@@ -99,8 +100,12 @@ function RefreshAccount(account, since)
                 balanceStr = string.gsub(balanceStr, ",", "")
                 balance = tonumber(balanceStr)
                 
+                if since < (os.time() - 2592000) then
+                	months = 3
+                end
+                
                 local count, _, accountId = string.find(element:xpath(".//h2/a"):attr("href"), ".+accountId=(.+)$")
-				statementUrl = '/online/Accounts/Details/RecentTransactions?accountId=' .. accountId .. "&months=3"
+				statementUrl = '/online/Accounts/Details/RecentTransactions?accountId=' .. accountId .. "&months=" .. months
                 statementPage = HTML(connection:request("GET", statementUrl))
              end
         end
