@@ -1,6 +1,6 @@
 local BANK_CODE = "Permanent TSB Business"
 
-WebBanking{version     = 1.01,
+WebBanking{version     = 1.02,
            url         = "https://www.business24.ie/online/",
            services    = {BANK_CODE},
            description = string.format(MM.localizeText("Get balance and transactions for %s"), BANK_CODE)}
@@ -19,9 +19,9 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     if index ~= 1 then
         return "Please enter your password followed by a minus sign and your six-digit PAN. (example: password-123456)"
     end
-    
+
     connection = Connection()
-    
+
     -- step 1 (username/password)
     local step1Page = HTML(connection:get(url))
     step1Page:xpath("//input[@id='login-number']"):attr("value", username)
@@ -33,7 +33,7 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
     if errorElement:length() > 0 then
         return errorElement:text()
     end
-    
+
     -- step 2 (PAN)
     for i = 1, 3 do
         local challengeStr = step2Page:xpath("//label[@for='login-digit-" .. i .. "']"):text()
@@ -46,7 +46,7 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
         local answer = string.sub(pan, characterIndex, characterIndex)
         step2Page:xpath("//input[@id='login-digit-" .. i .. "']"):attr("value", answer)
     end
-    
+
     startPage = HTML(connection:request(step2Page:xpath("//button[@id='submit']"):click()))
 
     local errorElement = startPage:xpath("//*[@class='module-error']/*/div[@class='notice']/*/li")
@@ -67,7 +67,7 @@ end
 
 function ListAccounts(knownAccounts)
     -- Return array of accounts.
-    local accounts = {}    
+    local accounts = {}
 
     startPage:xpath("//div[contains(@class, 'module-account')]"):each(
         function(index, element)
@@ -99,11 +99,11 @@ function RefreshAccount(account, since)
                 balanceStr = string.gsub(balanceStr, "€", "")
                 balanceStr = string.gsub(balanceStr, ",", "")
                 balance = tonumber(balanceStr)
-                
+
                 if since < (os.time() - 2592000) then
                     months = 3
                 end
-                
+
                 local count, _, accountId = string.find(element:xpath(".//h2/a"):attr("href"), ".+accountId=(.+)$")
                 statementUrl = '/online/Accounts/Details/RecentTransactions?accountId=' .. accountId .. "&months=" .. months
                 statementPage = HTML(connection:request("GET", statementUrl))
@@ -125,13 +125,13 @@ function RefreshAccount(account, since)
             local bookingText = nil
             local purpose = nil
             local endToEndReference = nil
-        
+
             local firstElement = element:children():get(1)
             local timestamp = humanDateStrToTimestamp(firstElement:text())
 
             local descriptionElement = element:children():get(2)
             local description = descriptionElement:text()
-            
+
             if (string.sub(description, 0, 2)) == 'CT' then
                 bookingText = 'Credit Transfer'
                 description = string.sub(description, 3, -1)
@@ -148,7 +148,7 @@ function RefreshAccount(account, since)
                 bookingText = 'ATM Transaction'
                 description = string.sub(description, 4, -1)
             end
-            
+
             -- Get SEPA details
             local sepaForm = descriptionElement:xpath(".//form")
             if sepaForm:length() > 0 then
@@ -161,15 +161,17 @@ function RefreshAccount(account, since)
                 purpose = sepaVars:get(3):text() .. " " .. sepaVars:get(9):text()
                 endToEndReference = sepaVars:get(8):text()
             end
-            
+
             local amount = nil
             local inAmountStr = element:children():get(3):text()
             local outAmountStr = element:children():get(4):text()
             local amountStr
             if string.len(inAmountStr) > 0 then
                 amountStr = inAmountStr
-            else
+            elseif string.len(outAmountStr) > 0 then
                 amountStr = "-" .. outAmountStr
+            else
+            	amountStr = 0
             end
             amountStr = string.gsub(amountStr, ",", "")
             amount = tonumber(amountStr)
