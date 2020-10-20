@@ -107,6 +107,9 @@ function RefreshAccount(account, since)
                 local count, _, accountId = string.find(element:xpath(".//h2/a"):attr("href"), ".+accountId=(.+)$")
                 statementUrl = '/online/Accounts/Details/RecentTransactions?accountId=' .. accountId .. "&months=" .. months
                 statementPage = HTML(connection:request("GET", statementUrl))
+                
+                pendingUrl = '/online/Accounts/Details/PendingTransactions?accountId=' .. accountId
+                pendingPage = HTML(connection:request("GET", pendingUrl))
              end
         end
     )
@@ -182,7 +185,67 @@ function RefreshAccount(account, since)
                 purpose = purpose,
                 amount = amount,
                 bookingText = bookingText,
-                endToEndReference = endToEndReference
+                endToEndReference = endToEndReference,
+                booked = true
+            })
+
+        end
+    )
+    
+    local pendingTransactions = {}
+
+    -- load transactions
+    local pendingTransactionDetails = pendingPage:xpath("//div[contains(@class, 'module-account')]/*/*/tbody")
+
+    pendingTransactionDetails:children():each(
+        function(index, element)
+            local bookingText = nil
+            local purpose = nil
+
+            local firstElement = element:children():get(1)
+            local timestamp = humanDateStrToTimestamp(firstElement:text())
+
+            local descriptionElement = element:children():get(2)
+            local description = descriptionElement:text()
+
+            if (string.sub(description, 0, 2)) == 'CT' then
+                bookingText = 'Credit Transfer'
+                description = string.sub(description, 3, -1)
+            elseif (string.sub(description, 0, 2)) == 'DD' then
+                bookingText = 'Direct Debit'
+                description = string.sub(description, 3, -1)
+            elseif (string.sub(description, 0, 3)) == 'POS' then
+                bookingText = 'Debit Card Transaction'
+                description = string.sub(description, 4, -1)
+            elseif (string.sub(description, 0, 3)) == 'CNC' then
+                bookingText = 'Debit Card Transaction (Contactless)'
+                description = string.sub(description, 4, -1)
+            elseif (string.sub(description, 0, 3)) == 'ATM' then
+                bookingText = 'ATM Transaction'
+                description = string.sub(description, 4, -1)
+            end
+
+            local amount = nil
+            local inAmountStr = element:children():get(3):text()
+            local outAmountStr = element:children():get(4):text()
+            local amountStr
+            if string.len(inAmountStr) > 0 then
+                amountStr = inAmountStr
+            elseif string.len(outAmountStr) > 0 then
+                amountStr = "-" .. outAmountStr
+            else
+            	amountStr = 0
+            end
+            amountStr = string.gsub(amountStr, ",", "")
+            amount = tonumber(amountStr)
+
+            table.insert(transactions, {
+                name = description,
+                bookingDate = timestamp,
+                purpose = purpose,
+                amount = amount,
+                bookingText = bookingText,
+                booked = false
             })
 
         end
